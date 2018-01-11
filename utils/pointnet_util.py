@@ -116,31 +116,32 @@ def pointnet_sa_module(xyz, points, npoint, radius, nsample, mlp, mlp2, group_al
                                         padding='VALID', stride=[1,1],
                                         bn=bn, is_training=is_training,
                                         scope='conv%d'%(i), bn_decay=bn_decay) 
-        if pooling=='avg':
+        if pooling == 'avg':
             new_points = tf_util.avg_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='avgpool1')
-        elif pooling=='weighted_avg':
+        elif pooling == 'weighted_avg':
             with tf.variable_scope('weighted_avg1'):
-                dists = tf.norm(grouped_xyz,axis=-1,ord=2,keep_dims=True)
+                dists = tf.norm(grouped_xyz, axis=-1, ord=2, keep_dims=True)
                 exp_dists = tf.exp(-dists * 5)
-                weights = exp_dists/tf.reduce_sum(exp_dists,axis=2,keep_dims=True) # (batch_size, npoint, nsample, 1)
-                new_points *= weights # (batch_size, npoint, nsample, mlp[-1])
+                weights = exp_dists/tf.reduce_sum(exp_dists, axis=2, keep_dims=True) # (batch_size, npoint, nsample, 1)
+                new_points *= weights  # (batch_size, npoint, nsample, mlp[-1])
                 new_points = tf.reduce_sum(new_points, axis=2, keep_dims=True)
-        elif pooling=='max':
+        elif pooling == 'max':
             new_points = tf.reduce_max(new_points, axis=[2], keep_dims=True)
-        elif pooling=='min':
+        elif pooling == 'min':
             new_points = tf_util.max_pool2d(-1*new_points, [1,nsample], stride=[1,1], padding='VALID', scope='minpool1')
-        elif pooling=='max_and_avg':
+        elif pooling == 'max_and_avg':
             avg_points = tf_util.max_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='maxpool1')
             max_points = tf_util.avg_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='avgpool1')
             new_points = tf.concat([avg_points, max_points], axis=-1)
             
-        if mlp2 is None: mlp2 = []
+        if mlp2 is None:
+            mlp2 = []
         for i, num_out_channel in enumerate(mlp2):
             new_points = tf_util.conv2d(new_points, num_out_channel, [1,1],
                                         padding='VALID', stride=[1,1],
                                         bn=bn, is_training=is_training,
-                                        scope='conv_post_%d'%(i), bn_decay=bn_decay) 
-        new_points = tf.squeeze(new_points, [2]) # (batch_size, npoints, mlp2[-1])
+                                        scope='conv_post_%d'%(i), bn_decay=bn_decay)
+        new_points = tf.squeeze(new_points, [2])  # (batch_size, npoints, mlp2[-1])
         return new_xyz, new_points, idx
 
 def pointnet_sa_module_msg(xyz, points, npoint, radius_list, nsample_list, mlp_list, is_training, bn_decay, scope, bn=True, use_xyz=True):
@@ -202,7 +203,7 @@ def pointnet_fp_module(xyz1, xyz2, points1, points2, mlp, is_training, bn_decay,
         interpolated_points = three_interpolate(points2, idx, weight)
 
         if points1 is not None:
-            new_points1 = tf.concat(axis=2, values=[interpolated_points, points1]) # B,ndataset1,nchannel1+nchannel2
+            new_points1 = tf.concat(axis=2, values=[interpolated_points, points1])  # B,ndataset1,nchannel1+nchannel2
         else:
             new_points1 = interpolated_points
         new_points1 = tf.expand_dims(new_points1, 2)
@@ -211,5 +212,5 @@ def pointnet_fp_module(xyz1, xyz2, points1, points2, mlp, is_training, bn_decay,
                                          padding='VALID', stride=[1,1],
                                          bn=bn, is_training=is_training,
                                          scope='conv_%d'%(i), bn_decay=bn_decay)
-        new_points1 = tf.squeeze(new_points1, [2]) # B,ndataset1,mlp[-1]
+        new_points1 = tf.squeeze(new_points1, [2])  # B,ndataset1,mlp[-1]
         return new_points1
